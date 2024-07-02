@@ -1,0 +1,66 @@
+---
+- name: Install Node Exporter
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update APT package index
+      apt:
+        update_cache: yes
+
+    - name: Install dependencies
+      apt:
+        name:
+          - tar
+        state: present
+
+    - name: Copy Node Exporter tarball to target VMs
+      copy:
+        src: /home/yahsat/node_exporter-1.3.1.linux-amd64.tar.gz
+        dest: /tmp/
+        mode: '0644'
+
+    - name: Extract Node Exporter
+      command: tar -xvf /tmp/node_exporter-1.3.1.linux-amd64.tar.gz -C /tmp/
+
+    - name: Copy Node Exporter binary to /usr/local/bin
+      copy:
+        src: /tmp/node_exporter-1.3.1.linux-amd64/node_exporter
+        dest: /usr/local/bin/
+        mode: '0755'
+
+    - name: Create Node Exporter user
+      user:
+        name: node_exporter
+        system: yes
+        shell: /bin/false
+
+    - name: Create systemd service file for Node Exporter
+      copy:
+        dest: /etc/systemd/system/node_exporter.service
+        content: |
+          [Unit]
+          Description=Node Exporter
+          After=network.target
+
+          [Service]
+          User=node_exporter
+          Group=node_exporter
+          Type=simple
+          ExecStart=/usr/local/bin/node_exporter
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: '0644'
+
+    - name: Reload systemd to apply the new service
+      command: systemctl daemon-reload
+
+    - name: Enable Node Exporter service
+      systemd:
+        name: node_exporter
+        enabled: yes
+
+    - name: Start Node Exporter service
+      systemd:
+        name: node_exporter
+        state: started
